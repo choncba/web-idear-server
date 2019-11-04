@@ -146,7 +146,7 @@ var TeamController = {
 
             if(!memberUpdated) return res.status(404).send({message: 'No existe el Miembro'});
 
-            return res.status(200).send({project: memberUpdated});
+            return res.status(200).send({member: memberUpdated});
         });
     },
     // Metodo para eliminar un proyecto
