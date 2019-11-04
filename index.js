@@ -2,6 +2,7 @@
 
 // Conexión a MongoDB
 var mongoose = require('mongoose'); // Variable con la accedo a la BD
+mongoose.set('useFindAndModify', false);
 
 var app = require('./app'); // importamos desde app.js
 var port = 3700;            // definimos el puerto del servidor
