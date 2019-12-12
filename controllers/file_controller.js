@@ -1,97 +1,113 @@
 'use strict'
 
-var Activity = require('../models/activity_model');  // Cargo el modelo de Activities de la BD
+var File = require('../models/file_model');
+
 var fs = require('fs');             // Librería para el manejo de archivos de node
 var path = require('path');         // método de node que permite acceder a rutas físicas de archivos
 
-var FileController = {
-    // Método para enviar un archivo de imágen al front-end
-    getImage: function(req, res){
-        var file = req.params.image;
-        var path_file = './uploads/equipo/'+file;
-        console.log(file);
+var opt = require('../globals');
 
-        fs.exists(path_file, (exists) => {
-            if(exists){
-                return res.sendFile(path.resolve(path_file));
-            }
+var FileController = {
+    // Busca una imágen por su ID en la BD y devuelve la misma
+    getFile: function(req, res){
+        var fileID = req.params.id;
+        
+        // Si no se pasa el ID se devuelve un JSON con el listado de todas las imágenes en la carpeta UPLOADS
+        if(fileID == null){
+            File.find({}).exec((err, files) => {
+                if(err) return res.status(500).send({message: 'Error al devolver los datos'});
+
+                if(!files) return res.status(404).send({message: 'No hay Filenes para mostrar'});
+
+                return res.status(200).send({files}); // Envio el json con las filenes
+            });
+        }
+        else{
+            File.findById(fileID, (err, file) => {
+                if(err){ return res.status(404).send({message: "No existe el archivo..."}); }
+                
+                //console.log(file);
+                if(file){
+                    var filePath = opt.UPLOAD_PATH + '\\' + file.filename;
+                    //console.log(filePath);
+                    fs.exists(filePath, (exists) => {
+                        if(exists){
+                            console.log("Enviando el archivo...");
+                            return res.sendFile(path.resolve(filePath));
+                        }
+                        else{
+                            console.log("Archivo NO encontrado");
+                            return res.status(200).send({message: "No existe el Archivo..."});
+                        }
+                    });
+                }
+                else{
+                    return res.status(404).send({message: "No existe el archivo..."});
+                }
+            });
+        }
+    },
+    uploadFile: function(req,res){
+        //console.log(req.files);
+        var files = req.files.file;
+        if(Array.isArray(files)){               // Si es un array, son Multiples Archivos
+            var uploads = new Array();
+            files.forEach((element, i) => {
+                    var newFile = new File();
+                    newFile.filename = element.path.split(opt.UPLOAD_PATH + '\\')[1];
+                    newFile.originalName = element.originalFilename;
+                    newFile.created = Date.now();
+                    newFile.save((err, FileStored) => {
+                        if(err) console.log(err);
+                    });
+                    uploads[i] = newFile;
+            });
+            if(!uploads) return FileController.sendResponse(res, 404, "No se pudieron guardar los archivos", null);
+            //console.log(uploads);
+            return FileController.sendResponse(res, 200, "Subidos " + uploads.length + " archivos!", uploads);
+        }
+        else{               // Un solo archivo
+            var newFile = new File();
+            newFile.filename = files.path.split(opt.UPLOAD_PATH + '\\')[1];
+            newFile.originalName = files.originalFilename;
+            newFile.created = Date.now();
+            newFile.save((err, FileStored) => {
+                if(!FileStored || err) return FileController.sendResponse(res, 404, "No se pudo guardar el archivo", null);
+                return FileController.sendResponse(res, 200, "Subido!", FileStored);
+            });
+        }
+    },
+    deleteFile: function(req,res){
+        var fileID = req.params.id;
+
+        File.findByIdAndDelete(fileID, (err, fileDeleted) => {
+            //console.log(fileDeleted);
+            if(err) return res.status(500).send({message: 'No se ha podido Borar de la BD'});
+            if(!fileDeleted){
+                return res.status(404).send({message: 'No existe el archivo en la BD'});
+            } 
             else{
-                return res.status(200).send({message: "No existe la imagen..."});
+                var deleteFile = opt.UPLOAD_PATH + '\\' + fileDeleted.filename;
+                fs.exists(deleteFile, (exists) => {
+                    if(exists){
+                        fs.unlink(deleteFile, (error) => {
+                            if(error) return res.status(500).send({message: 'Error al borrar en el servidor'});
+                            else return res.status(200).send({file: fileDeleted});
+                        });
+                    }
+                    else return res.status(404).send({message: 'No existe el archivo en el servidor'});
+                });
             }
         });
     },
-    uploadImage: function(req,res){
-                
-        var ActivityID = req.params.id;
-        var filePath = req.files.image.path;
-        var originalName = "";
-        originalName = req.files.image.name;
-        var fileName = "No hay imágen!";
-        var fileExtension = "";
-        var extensions = ['png','jpg','jpeg','bmp','png'];
-        var validExtension = false;
+    sendResponse(response, number, msg, files){
+        var rsp = {
+            message: msg,
+            files: files
+        };
 
-        if(req.files){
-            fileName = req.files.image.path.split('\equipo\\')[1];
-            fileExtension = fileName.split('.')[1].toLowerCase();
-
-            console.log("originalName: " + originalName);
-            console.log("filePath: " + filePath);
-            console.log("fileName: " + fileName);
-            console.log("fileExtension: " + fileExtension + " Type: " + typeof fileExtension);
-            
-            for(var i in extensions){
-                if(fileExtension == extensions[i])
-                {
-                    validExtension = true;
-                }
-            }
-
-            if(validExtension){
-                var newPath = 'uploads\\equipo\\' + originalName;
-                fs.exists(newPath, (exists) => {
-                    if(exists){
-                        //console.log('El archivo ' + newPath + ' ya existe!');
-                    }
-                    else{
-                        fs.rename(filePath, newPath, (err) => {
-                            if(err){
-                                //console.log('No se pudo cambiar el nombre, se mantiene ' + fileName);
-                                //console.log(err);
-                            }
-                            else{
-                                //console.log("Original: " + fileName);
-                                fileName = originalName;
-                                //console.log("Nuevo: " + fileName);
-
-                                Activity.findByIdAndUpdate(ActivityID, {picture: fileName}, {new: true}, (err, memberUpdated) => {
-                                    //console.log("Miembro Actualizado:");
-                                    //console.log(memberUpdated);
-                                    
-                                    if(err) return res.status(500).send({message: 'No se pudo guardar la imagen!'});
-                    
-                                    if(!memberUpdated) return res.status(404).send({message: 'No se encuentra el ID!'});
-                    
-                                    return res.status(200).send({member: memberUpdated});
-                                });
-                            }
-                        });
-                    }
-                });
-            }
-            else{
-                fs.unlink(filePath, (err) => {  // fs.unlink Borra el archivo subido y envia respuesta
-                    return res.status(200).send({message: 'La extensión no es válida'});
-                });
-            }
-        }
-        else{
-            return res.status(200).send({message: 'No se subió el archivo!'});
-        }
-    },
-    deleteImage: function(req,res){
-
+        response.status(number).send(rsp);  
     }
 }
 
-module.exports = ActivityController;
+module.exports = FileController;

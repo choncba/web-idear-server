@@ -5,25 +5,19 @@ var mongoose = require('mongoose'); // Variable con la accedo a la BD
 mongoose.set('useFindAndModify', false);
 
 var app = require('./app'); // importamos desde app.js
-var port = 3700;            // definimos el puerto del servidor
 
-// Conexión a base de datos
-var dataBaseName = "web_idear";
-var dataBaseURL = "localhost";
-var dataBasePort = "27017";
-var dataBaseUser = "";
-var dataBasePassword = "";
+var opt = require('./globals');
 
 mongoose.Promise = global.Promise;  // Creo un objeto promesa
 // Inicio la conexión con connect(url, parametros) indicando la url de la bd y el nombre de la misma
 // los parametros indicados son por compatibilidad
-mongoose.connect('mongodb://' + dataBaseURL + ':' + dataBasePort + '/' + dataBaseName , { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect('mongodb://' + opt.dataBaseURL + ':' + opt.dataBasePort + '/' + opt.dataBaseName , { useNewUrlParser: true, useUnifiedTopology: true })
         .then(()=>{
             console.log("Conexión a la BD establecida!");
 
             // Creamos el servidor
-            app.listen(port, () => {
-                console.log('Servidor Iniciado OK en http://' + dataBaseURL + ':' + port);
+            app.listen(opt.serverPort, () => {
+                console.log('Servidor Iniciado OK en http://' + opt.dataBaseURL + ':' + opt.serverPort);
             });
         })
         .catch(err => console.log(err));

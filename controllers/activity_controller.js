@@ -1,13 +1,63 @@
 'use strict'
 
 var Activity = require('../models/activity_model');  // Cargo el modelo de Activities de la BD
-var fs = require('fs');             // Librería para el manejo de archivos de node
-var path = require('path');         // método de node que permite acceder a rutas físicas de archivos
 
 var ActivityController = {
+    // getActivitu Busca una o varias actividades en la BD
+    // GET a http://localhost:3700/api/get-activity -> Todas las actividades
+    // Respuesta - Array de actividades:
+    // {
+    //     "activities": [
+    //         {
+    //             "pictures": [
+    //                 "asdasdasd",
+    //                 "dfsadfsdfsd",
+    //                 "dfsdfsdfsdf"
+    //             ],
+    //             "_id": "5ddff3f70fa400101c32f5cf",
+    //             "name": "Actividad 10",
+    //             "description": "Descripcion de la Actividad 1",
+    //             "front_picture": 0,
+    //             "date": "2019-11-28T16:21:11.276Z",
+    //             "date_activity": "2019-03-17",
+    //             "__v": 0
+    //         },
+    //         {
+    //             "pictures": [
+    //                 "asdasdasd",
+    //                 "dfsadfsdfsd",
+    //                 "dfsdfsdfsdf"
+    //             ],
+    //             "_id": "5ddff4130fa400101c32f5d0",
+    //             "name": "Actividad 115",
+    //             "description": "Descripcion de la Actividad 15",
+    //             "front_picture": 0,
+    //             "date": "2019-11-28T16:21:39.410Z",
+    //             "date_activity": "2015-10-08",
+    //             "__v": 0
+    //         }
+    //     ]
+    // }
+    // GET a http://localhost:3700/api/get-activity/5ddfeabf9b2d361f782e296d -> Una sola actividad al pasar el ID
+    // Respuesta:
+    // {
+    //     "activity": {
+    //         "pictures": [
+    //             "asdasdasd",
+    //             "dfsadfsdfsd",
+    //             "dfsdfsdfsdf"
+    //         ],
+    //         "_id": "5ddff4130fa400101c32f5d0",
+    //         "name": "Actividad 115",
+    //         "description": "Descripcion de la Actividad 15",
+    //         "front_picture": 0,
+    //         "date": "2019-11-28T16:21:39.410Z",
+    //         "date_activity": "2015-10-08",
+    //         "__v": 0
+    //     }
+    // }
     getActivity: function(req,res){
         var activityID = req.params.id;
-        //console.log(activityID);
 
         if(activityID == null){ // Si es null solicito todas las actividades
             Activity.find({}).exec((err, activities)=>{
@@ -19,154 +69,88 @@ var ActivityController = {
             });
         }
         else{
-            Activity.findById(activityID, (err,activity)=>{
+            Activity.findById(activityID, (err,activityFound)=>{
                 if(err) return res.status(500).send({message: 'Error al buscar los datos'});
 
-                if(!activity) return res.status(404).send({message: 'El ID no existe'});
+                if(!activityFound) return res.status(404).send({message: 'El ID no existe'});
 
-                return res.status(200).send({activity});
+                return res.status(200).send({activity: activityFound});
             });
         }
     },
-    // Método para enviar un archivo de imágen al front-end
-    getImageFile: function(req, res){
-        var file = req.params.image;
-        var path_file = './uploads/equipo/'+file;
-        console.log(file);
-
-        fs.exists(path_file, (exists) => {
-            if(exists){
-                return res.sendFile(path.resolve(path_file));
-            }
-            else{
-                return res.status(200).send({message: "No existe la imagen..."});
-            }
-        });
-    },
-    saveMember: function(req,res){
-        var member = new Activity();
+    // saveActivity - Guardo una nueva actividad en la BD
+    // Con Postman envío un POST a http://localhost:3700/api/save-activity
+    // Con los datos en BODY (x-www-form-urlencoded)
+    // Key              value
+    // name             nombre de la actividad
+    // description      Descripcion de la actividad
+    // pictures         ["asdasd","sdasdasda","asdsdasd"] -> Array JSON con los ID de las imagenes en la BD
+    // front_picture    0 -> Número de orden en el array de la imagen correspondiente a la portada de la actividad
+    // Almacenado en la BD:
+    // {
+    //     "_id" : ObjectId("5ddff3d20fa400101c32f5ce"),
+    //     "pictures" : [ 
+    //         "asdasdasd", 
+    //         "dfsadfsdfsd", 
+    //         "dfsdfsdfsdf"
+    //     ],
+    //     "name" : "Actividad 10",
+    //     "description" : "Descripcion de la Actividad 1",
+    //     "front_picture" : 0,
+    //     "date" : ISODate("2019-11-28T16:20:34.150Z"),
+    //     "date_activity" : "2019-03-17",
+    //     "__v" : 0
+    // }
+    saveActivity: function(req,res){
+        var activity = new Activity();
         var params = req.body;
-
-        member.name = params.name;
-        member.position = params.position;
-        member.description = params.description;
-        member.picture = null; // La asigno en el método uploadActivityImage
-        member.slider_order = params.slider_order;
-        member.show = params.show;
-
-        member.save((err, ActivityStored) => {
+        //console.log(params);   
+        activity.name = params.name;
+        activity.description = params.description;
+        console.log("params.pictures: " + params.pictures);
+        try{ activity.pictures = JSON.parse(params.pictures); }   // Verifico sea un JSON válido
+        catch(e){ activity.pictures = null; }
+        console.log("activity.pictures: " + activity.pictures);
+        activity.front_picture = params.front_picture;
+        activity.date = Date.now();
+        activity.date_activity = params.date_activity;
+        activity.save((err, ActivityStored) => {
             if(err) return status(500).send({message:"Error al guardar el nuevo Miembro"});
 
             if(!ActivityStored) return res.status(404).send({message:"No se pudo guardar el nuevo miembro"});
 
-            return res.status(200).send({member: ActivityStored});
+            return res.status(200).send({activity: ActivityStored});
         });
     },
-    uploadActivityImage: function(req,res){
-                
-        var ActivityID = req.params.id;
-        var filePath = req.files.image.path;
-        var originalName = "";
-        originalName = req.files.image.name;
-        var fileName = "No hay imágen!";
-        var fileExtension = "";
-        var extensions = ['png','jpg','jpeg','bmp','png'];
-        var validExtension = false;
-
-        if(req.files){
-            fileName = req.files.image.path.split('\equipo\\')[1];
-            fileExtension = fileName.split('.')[1].toLowerCase();
-
-            console.log("originalName: " + originalName);
-            console.log("filePath: " + filePath);
-            console.log("fileName: " + fileName);
-            console.log("fileExtension: " + fileExtension + " Type: " + typeof fileExtension);
-            
-            for(var i in extensions){
-                if(fileExtension == extensions[i])
-                {
-                    validExtension = true;
-                }
-            }
-
-            if(validExtension){
-                var newPath = 'uploads\\equipo\\' + originalName;
-                fs.exists(newPath, (exists) => {
-                    if(exists){
-                        //console.log('El archivo ' + newPath + ' ya existe!');
-                    }
-                    else{
-                        fs.rename(filePath, newPath, (err) => {
-                            if(err){
-                                //console.log('No se pudo cambiar el nombre, se mantiene ' + fileName);
-                                //console.log(err);
-                            }
-                            else{
-                                //console.log("Original: " + fileName);
-                                fileName = originalName;
-                                //console.log("Nuevo: " + fileName);
-
-                                Activity.findByIdAndUpdate(ActivityID, {picture: fileName}, {new: true}, (err, memberUpdated) => {
-                                    //console.log("Miembro Actualizado:");
-                                    //console.log(memberUpdated);
-                                    
-                                    if(err) return res.status(500).send({message: 'No se pudo guardar la imagen!'});
-                    
-                                    if(!memberUpdated) return res.status(404).send({message: 'No se encuentra el ID!'});
-                    
-                                    return res.status(200).send({member: memberUpdated});
-                                });
-                            }
-                        });
-                    }
-                });
-            }
-            else{
-                fs.unlink(filePath, (err) => {  // fs.unlink Borra el archivo subido y envia respuesta
-                    return res.status(200).send({message: 'La extensión no es válida'});
-                });
-            }
-        }
-        else{
-            return res.status(200).send({message: 'No se subió el archivo!'});
-        }
-    },
     // Método para actualizar un proyecto de la BD
-    // Envío un PUT http://localhost:3700/api/update-project/5d812c99f191e22018038323
-    // Con los datos a actualizar en body
-    updateMember: function(req,res){
-        var activityID = req.params.id;  // Capturo el ID a actualizar
-        var update = req.body;          // Capturo todo el body enviado desde la web
-
-        Activity.findByIdAndUpdate(activityID, update, {new:true}, (err, memberUpdated) => { // {new: true} es para que devuelva el proyecto actualizado y no el anterior
+    updateActivity: function(req,res){
+        
+        var activityUpdate = req.body;
+        var activityID = req.params.id;
+        
+        try{ activityUpdate.pictures = JSON.parse(activityUpdate.pictures); }  // Verifico sea un JSON válido
+        catch(e){ activityUpdate.pictures = null; }      
+        
+        Activity.findByIdAndUpdate(activityID, activityUpdate, {new:true}, (err, activityUpdated) => { // {new: true} es para que devuelva el proyecto actualizado y no el anterior
 
             if(err) return res.status(500).send({message: 'Error al actualizar'});
 
-            if(!memberUpdated) return res.status(404).send({message: 'No existe el Miembro'});
+            if(!activityUpdated) return res.status(404).send({message: 'No existe la Actividad'});
 
-            return res.status(200).send({member: memberUpdated});
+            return res.status(200).send({activity: activityUpdated});
         });
     },
-    // Metodo para eliminar un proyecto
-    // Envío un DELETE a http://localhost:3700/api/delete-project/5d812c99f191e22018038323
-    deleteMember: function(req,res){
+    // Metodo para eliminar una actividad
+    deleteActivity: function(req,res){
         var activityID = req.params.id;
 
-        Activity.findById
+        Activity.findByIdAndDelete(activityID, (err, activityDeleted) => {
 
-        Activity.findByIdAndDelete(activityID, (err, memberDeleted) => {
+            if(err) return res.status(500).send({message: 'No se ha podido Borrar'});
 
-            var deleteFile = 'uploads\\equipo\\' + memberDeleted.picture;
+            if(!activityDeleted) return res.status(404).send({message: 'No existe la Actividad'});
 
-            fs.unlink(deleteFile, (error) => {
-                console.log(err);
-            });
-
-            if(err) return res.status(500).send({message: 'No se ha podido Borar'});
-
-            if(!memberDeleted) return res.status(404).send({message: 'No existe el Miembro'});
-
-            return res.status(200).send({member: memberDeleted});
+            return res.status(200).send({activity: activityDeleted});
         });
     }
 }
