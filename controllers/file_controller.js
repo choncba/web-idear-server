@@ -29,6 +29,7 @@ var FileController = {
                 //console.log(file);
                 if(file){
                     var filePath = opt.UPLOAD_PATH + '\\' + file.filename;
+                    //var filePath = opt.UPLOAD_PATH + '/' + file.filename; // Para el server de produccion
                     //console.log(filePath);
                     fs.exists(filePath, (exists) => {
                         if(exists){
@@ -48,13 +49,14 @@ var FileController = {
         }
     },
     uploadFile: function(req,res){
-        //console.log(req.files);
+        console.log(req.files);
         var files = req.files.file;
         if(Array.isArray(files)){               // Si es un array, son Multiples Archivos
             var uploads = new Array();
             files.forEach((element, i) => {
                     var newFile = new File();
                     newFile.filename = element.path.split(opt.UPLOAD_PATH + '\\')[1];
+                    //newFile.filename = element.path.split(opt.UPLOAD_PATH + '/')[1]; // Para el server de produccion
                     newFile.originalName = element.originalFilename;
                     newFile.created = Date.now();
                     newFile.save((err, FileStored) => {
@@ -69,6 +71,7 @@ var FileController = {
         else{               // Un solo archivo
             var newFile = new File();
             newFile.filename = files.path.split(opt.UPLOAD_PATH + '\\')[1];
+            //newFile.filename = files.path.split(opt.UPLOAD_PATH + '/')[1]; // Para el server de produccion
             newFile.originalName = files.originalFilename;
             newFile.created = Date.now();
             newFile.save((err, FileStored) => {
@@ -88,6 +91,7 @@ var FileController = {
             } 
             else{
                 var deleteFile = opt.UPLOAD_PATH + '\\' + fileDeleted.filename;
+                //var deleteFile = opt.UPLOAD_PATH + '/' + fileDeleted.filename; // Para el server de produccion
                 fs.exists(deleteFile, (exists) => {
                     if(exists){
                         fs.unlink(deleteFile, (error) => {
